@@ -57,6 +57,8 @@ venv/
 ENV/
 .venv/
 .env*
+.artifacts/
+output/
 ## PyInstaller
 *.spec
 dist/

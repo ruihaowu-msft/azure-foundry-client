@@ -1,0 +1,11 @@
+# Reference-only template inspired by standard Codex Azure model provider config.
+# This file is not consumed by the local reviewer scripts directly.
+# Actual local secrets should stay in `.env.reviewer`.
+
+[reviewer]
+model = "gpt-5.4-pro"
+model_provider = "azure"
+model_reasoning_effort = "high"
+base_url = "https://your-resource.openai.azure.com/openai/v1"
+env_key = "FOUNDRY_REVIEWER_API_KEY"
+wire_api = "responses"
