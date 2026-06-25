@@ -20,7 +20,6 @@ jobs:
       REVIEW_MODEL: ${{ vars.FOUNDRY_REVIEWER_MODEL }}
       REVIEW_API_KEY: ${{ secrets.FOUNDRY_REVIEWER_API_KEY }}
       REVIEW_BEARER_TOKEN: ${{ secrets.FOUNDRY_REVIEWER_BEARER_TOKEN }}
-      ALERT_WEBHOOK_URL: ${{ secrets.TEAMS_ALERT_WEBHOOK_URL }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -149,33 +148,6 @@ jobs:
               });
             }
 
-      - name: Detect actionable findings
-        id: detect_findings
-        if: github.event_name == 'pull_request' && steps.run_reviewer.outcome == 'success'
-        shell: bash
-        run: |
-          if grep -Fq "No critical findings." .artifacts/reviewer.md; then
-            echo "send_alert=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "send_alert=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Notify Teams on reviewer findings
-        if: github.event_name == 'pull_request' && steps.detect_findings.outputs.send_alert == 'true' && env.ALERT_WEBHOOK_URL != ''
-        continue-on-error: true
-        shell: bash
-        run: |
-          python3 scripts/send_review_alert.py \
-            --webhook-url "$ALERT_WEBHOOK_URL" \
-            --status "review_findings" \
-            --repo "$GITHUB_REPOSITORY" \
-            --pr-number "${{ github.event.pull_request.number }}" \
-            --pr-title "${{ github.event.pull_request.title }}" \
-            --pr-url "${{ github.event.pull_request.html_url }}" \
-            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
-            --commit "$GITHUB_SHA" \
-            --details-file .artifacts/reviewer.md
-
       - name: Upsert failure PR comment
         if: always() && github.event_name == 'pull_request' && (steps.ensure_config.outcome == 'failure' || steps.build_input.outcome == 'failure' || steps.run_reviewer.outcome == 'failure')
         uses: actions/github-script@v7
@@ -235,33 +207,6 @@ jobs:
                 body: nextBody,
               });
             }
-
-      - name: Notify Teams on reviewer failure
-        if: always() && github.event_name == 'pull_request' && (steps.ensure_config.outcome == 'failure' || steps.build_input.outcome == 'failure' || steps.run_reviewer.outcome == 'failure') && env.ALERT_WEBHOOK_URL != ''
-        continue-on-error: true
-        shell: bash
-        run: |
-          failed_steps=""
-          if [ "${{ steps.ensure_config.outcome }}" = "failure" ]; then
-            failed_steps="${failed_steps}Ensure reviewer config exists,"
-          fi
-          if [ "${{ steps.build_input.outcome }}" = "failure" ]; then
-            failed_steps="${failed_steps}Build review input,"
-          fi
-          if [ "${{ steps.run_reviewer.outcome }}" = "failure" ]; then
-            failed_steps="${failed_steps}Run reviewer,"
-          fi
-          python3 scripts/send_review_alert.py \
-            --webhook-url "$ALERT_WEBHOOK_URL" \
-            --status "review_failure" \
-            --repo "$GITHUB_REPOSITORY" \
-            --pr-number "${{ github.event.pull_request.number }}" \
-            --pr-title "${{ github.event.pull_request.title }}" \
-            --pr-url "${{ github.event.pull_request.html_url }}" \
-            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
-            --commit "$GITHUB_SHA" \
-            --failed-steps "$failed_steps" \
-            --details-file .artifacts/reviewer.stderr
 
       - name: Fail job if reviewer workflow failed
         if: always() && (steps.ensure_config.outcome == 'failure' || steps.build_input.outcome == 'failure' || steps.run_reviewer.outcome == 'failure')

@@ -8,9 +8,8 @@ This repository supports a report-only reviewer flow backed by an Azure AI Found
 - sends the PR diff and review instructions to a Foundry reviewer model
 - posts or updates one PR comment with the review result
 - posts or updates one PR comment when the reviewer workflow fails
-- can send a Teams webhook alert when findings are present
-- can send a Teams webhook alert when the reviewer workflow fails
 - does not change code automatically
+- works well with ordinary GitHub email notifications for PR comments and Actions failures
 
 ## Repository configuration
 
@@ -24,23 +23,13 @@ Set one of these repository secrets:
 - `FOUNDRY_REVIEWER_API_KEY`
 - `FOUNDRY_REVIEWER_BEARER_TOKEN`
 
-Optional repository secret:
-
-- `TEAMS_ALERT_WEBHOOK_URL`
-
-## Teams pop-up alerts
+## Notifications
 
 Recommended setup:
 
-1. In Microsoft Teams, create a Workflow that starts with `When a Teams webhook request is received`.
-2. Have that workflow post a message or Adaptive Card into a chat or channel you actually watch.
-3. Copy the generated webhook URL.
-4. Save it in the repository secret `TEAMS_ALERT_WEBHOOK_URL`.
-
-The GitHub workflow sends two alert types:
-
-- `review_findings`: the reviewer finished and found issues
-- `review_failure`: the reviewer workflow itself failed before it could produce a complete report
+1. Keep the reviewer PR comments enabled through the workflow in this repository.
+2. Turn on GitHub email notifications for pull request comments and GitHub Actions updates on your account.
+3. Watch the repository or at least keep notifications enabled for pull requests you open or participate in.
 
 ## Local smoke test
 
