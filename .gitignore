@@ -1,0 +1,11 @@
+.venv/
+.pytest_cache/
+output/
+.env.reviewers
+__pycache__/
+*.pyc
+*.pyo
+*.DS_Store
+.artifacts/
+.github/tmp/
+*.egg-info/

@@ -1,0 +1,266 @@
+name: Foundry Dual Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  reviewer_a:
+    name: Foundry reviewer A
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    env:
+      REVIEW_ENDPOINT: ${{ vars.FOUNDRY_REVIEWER_A_ENDPOINT }}
+      REVIEW_MODEL: ${{ vars.FOUNDRY_REVIEWER_A_MODEL }}
+      REVIEW_API_KEY: ${{ secrets.FOUNDRY_REVIEWER_A_API_KEY }}
+      REVIEW_BEARER_TOKEN: ${{ secrets.FOUNDRY_REVIEWER_A_BEARER_TOKEN }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure reviewer A config exists
+        shell: bash
+        run: |
+          if [ -z "$REVIEW_ENDPOINT" ]; then
+            echo "FOUNDRY_REVIEWER_A_ENDPOINT repository variable is required." >&2
+            exit 1
+          fi
+          if [ -z "$REVIEW_MODEL" ]; then
+            echo "FOUNDRY_REVIEWER_A_MODEL repository variable is required." >&2
+            exit 1
+          fi
+          if [ -z "$REVIEW_API_KEY" ] && [ -z "$REVIEW_BEARER_TOKEN" ]; then
+            echo "Set FOUNDRY_REVIEWER_A_API_KEY or FOUNDRY_REVIEWER_A_BEARER_TOKEN." >&2
+            exit 1
+          fi
+
+      - name: Build review input
+        shell: bash
+        run: |
+          mkdir -p .github/tmp .artifacts
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin "${{ github.base_ref }}" --depth=1
+            git diff --unified=3 "origin/${{ github.base_ref }}...HEAD" > .artifacts/pr.diff
+            git diff --name-only "origin/${{ github.base_ref }}...HEAD" > .artifacts/changed-files.txt
+            {
+              echo "# Pull request metadata"
+              echo
+              echo "Title: ${{ github.event.pull_request.title }}"
+              echo
+              echo "Body:"
+              echo "${{ github.event.pull_request.body }}"
+            } > .github/tmp/pr-metadata.md
+          else
+            git diff --unified=3 HEAD~1...HEAD > .artifacts/pr.diff || true
+            git diff --name-only HEAD~1...HEAD > .artifacts/changed-files.txt || true
+            {
+              echo "# Workflow dispatch metadata"
+              echo
+              echo "Manual run on current branch state."
+            } > .github/tmp/pr-metadata.md
+          fi
+
+          {
+            echo "# Repository rules"
+            echo
+            cat AGENTS.md
+            echo
+            echo "# Review instructions"
+            echo
+            cat .github/prompts/foundry-review.md
+            echo
+            cat .github/tmp/pr-metadata.md
+            echo
+            echo "# Changed files"
+            echo
+            cat .artifacts/changed-files.txt
+            echo
+            echo "# Diff"
+            echo
+            cat .artifacts/pr.diff
+          } > .github/tmp/reviewer-a-input.md
+
+      - name: Run reviewer A
+        shell: bash
+        run: |
+          python3 scripts/foundry_review.py \
+            --endpoint "$REVIEW_ENDPOINT" \
+            --model "$REVIEW_MODEL" \
+            --prompt-file .github/tmp/reviewer-a-input.md \
+            --output-file .artifacts/reviewer-a.md \
+            --response-json-file .artifacts/reviewer-a-response.json \
+            --api-key "$REVIEW_API_KEY" \
+            --bearer-token "$REVIEW_BEARER_TOKEN"
+
+      - name: Upsert reviewer A PR comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const marker = "<!-- ai-review:foundry-a -->";
+            const body = fs.readFileSync(".artifacts/reviewer-a.md", "utf8");
+            const issue_number = context.payload.pull_request.number;
+            const { owner, repo } = context.repo;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+            const existing = comments.find(
+              (comment) =>
+                comment.user?.type === "Bot" &&
+                comment.body?.includes(marker),
+            );
+            const nextBody = `${marker}\n## Foundry reviewer A\n\n${body}`;
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body: nextBody,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body: nextBody,
+              });
+            }
+
+  reviewer_b:
+    name: Foundry reviewer B
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
+    env:
+      REVIEW_ENDPOINT: ${{ vars.FOUNDRY_REVIEWER_B_ENDPOINT }}
+      REVIEW_MODEL: ${{ vars.FOUNDRY_REVIEWER_B_MODEL }}
+      REVIEW_API_KEY: ${{ secrets.FOUNDRY_REVIEWER_B_API_KEY }}
+      REVIEW_BEARER_TOKEN: ${{ secrets.FOUNDRY_REVIEWER_B_BEARER_TOKEN }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure reviewer B config exists
+        shell: bash
+        run: |
+          if [ -z "$REVIEW_ENDPOINT" ]; then
+            echo "FOUNDRY_REVIEWER_B_ENDPOINT repository variable is required." >&2
+            exit 1
+          fi
+          if [ -z "$REVIEW_MODEL" ]; then
+            echo "FOUNDRY_REVIEWER_B_MODEL repository variable is required." >&2
+            exit 1
+          fi
+          if [ -z "$REVIEW_API_KEY" ] && [ -z "$REVIEW_BEARER_TOKEN" ]; then
+            echo "Set FOUNDRY_REVIEWER_B_API_KEY or FOUNDRY_REVIEWER_B_BEARER_TOKEN." >&2
+            exit 1
+          fi
+
+      - name: Build review input
+        shell: bash
+        run: |
+          mkdir -p .github/tmp .artifacts
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin "${{ github.base_ref }}" --depth=1
+            git diff --unified=3 "origin/${{ github.base_ref }}...HEAD" > .artifacts/pr.diff
+            git diff --name-only "origin/${{ github.base_ref }}...HEAD" > .artifacts/changed-files.txt
+            {
+              echo "# Pull request metadata"
+              echo
+              echo "Title: ${{ github.event.pull_request.title }}"
+              echo
+              echo "Body:"
+              echo "${{ github.event.pull_request.body }}"
+            } > .github/tmp/pr-metadata.md
+          else
+            git diff --unified=3 HEAD~1...HEAD > .artifacts/pr.diff || true
+            git diff --name-only HEAD~1...HEAD > .artifacts/changed-files.txt || true
+            {
+              echo "# Workflow dispatch metadata"
+              echo
+              echo "Manual run on current branch state."
+            } > .github/tmp/pr-metadata.md
+          fi
+
+          {
+            echo "# Repository rules"
+            echo
+            cat AGENTS.md
+            echo
+            echo "# Review instructions"
+            echo
+            cat .github/prompts/foundry-review.md
+            echo
+            cat .github/tmp/pr-metadata.md
+            echo
+            echo "# Changed files"
+            echo
+            cat .artifacts/changed-files.txt
+            echo
+            echo "# Diff"
+            echo
+            cat .artifacts/pr.diff
+          } > .github/tmp/reviewer-b-input.md
+
+      - name: Run reviewer B
+        shell: bash
+        run: |
+          python3 scripts/foundry_review.py \
+            --endpoint "$REVIEW_ENDPOINT" \
+            --model "$REVIEW_MODEL" \
+            --prompt-file .github/tmp/reviewer-b-input.md \
+            --output-file .artifacts/reviewer-b.md \
+            --response-json-file .artifacts/reviewer-b-response.json \
+            --api-key "$REVIEW_API_KEY" \
+            --bearer-token "$REVIEW_BEARER_TOKEN"
+
+      - name: Upsert reviewer B PR comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const marker = "<!-- ai-review:foundry-b -->";
+            const body = fs.readFileSync(".artifacts/reviewer-b.md", "utf8");
+            const issue_number = context.payload.pull_request.number;
+            const { owner, repo } = context.repo;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+            const existing = comments.find(
+              (comment) =>
+                comment.user?.type === "Bot" &&
+                comment.body?.includes(marker),
+            );
+            const nextBody = `${marker}\n## Foundry reviewer B\n\n${body}`;
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner,
+                repo,
+                comment_id: existing.id,
+                body: nextBody,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body: nextBody,
+              });
+            }

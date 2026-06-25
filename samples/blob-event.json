@@ -1,0 +1,11 @@
+{
+  "source_uri": "https://example.blob.core.windows.net/incoming/invoice-sample.pdf?sig=demo",
+  "filename": "invoice-sample.pdf",
+  "mime_type": "application/pdf",
+  "customer_id": "contoso-demo",
+  "metadata": {
+    "container": "incoming",
+    "blob_name": "invoice-sample.pdf",
+    "source": "blob-trigger"
+  }
+}
