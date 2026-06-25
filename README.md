@@ -137,14 +137,16 @@ Repository secrets:
 
 ### 公司环境下的本地 smoke test
 
-最省事的方式是先复制一份 reviewer 环境模板：
+本地 reviewer key 和 endpoint 现在默认放在这个文件里：
 
-```bash
-cd /Users/williamwu/scratch/foundry-media-pipeline-prototype
-cp .env.reviewers.example .env.reviewers
-```
+- [`.env.reviewers`](/Users/williamwu/scratch/foundry-media-pipeline-prototype/.env.reviewers:1)
 
-然后把 `.env.reviewers` 里的下面 8 个值填掉：
+模板保留在这里：
+
+- [`.env.reviewers.example`](/Users/williamwu/scratch/foundry-media-pipeline-prototype/.env.reviewers.example:1)
+- [`config/reviewer-models.template.toml`](/Users/williamwu/scratch/foundry-media-pipeline-prototype/config/reviewer-models.template.toml:1)
+
+你现在直接编辑 `.env.reviewers` 就行，把下面 8 个值填掉：
 
 - `FOUNDRY_REVIEWER_A_ENDPOINT`
 - `FOUNDRY_REVIEWER_A_MODEL`
@@ -166,9 +168,6 @@ TOKEN=$(az account get-access-token --resource https://cognitiveservices.azure.c
 
 ```bash
 cd /Users/williamwu/scratch/foundry-media-pipeline-prototype
-set -a
-source .env.reviewers
-set +a
 python3 scripts/run_dual_review_local.py
 ```
 

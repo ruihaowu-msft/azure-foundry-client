@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 REVIEW_SCRIPT = ROOT / "scripts" / "foundry_review.py"
 DEFAULT_PROMPT = ROOT / "samples" / "reviewer-smoke.md"
 DEFAULT_OUTPUT_DIR = ROOT / "output" / "local-review"
+DEFAULT_ENV_FILE = ROOT / ".env.reviewers"
 
 
 def parse_args() -> argparse.Namespace:
@@ -32,6 +33,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Stop immediately if reviewer A fails",
     )
+    parser.add_argument(
+        "--env-file",
+        default=str(DEFAULT_ENV_FILE),
+        help="Optional .env-style file that contains reviewer settings",
+    )
     return parser.parse_args()
 
 
@@ -44,6 +50,21 @@ def required_env(name: str) -> str:
 
 def optional_env(name: str) -> str:
     return os.getenv(name, "").strip()
+
+
+def load_env_file(path: Path) -> None:
+    if not path.exists():
+        return
+
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if key and key not in os.environ:
+            os.environ[key] = value
 
 
 def build_reviewer_command(prefix: str, prompt_file: Path, output_dir: Path) -> list[str]:
@@ -92,7 +113,9 @@ def main() -> int:
     args = parse_args()
     prompt_file = Path(args.prompt_file).resolve()
     output_dir = Path(args.output_dir).resolve()
+    env_file = Path(args.env_file).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
+    load_env_file(env_file)
 
     result_a = run_one("FOUNDRY_REVIEWER_A", prompt_file, output_dir)
     if result_a != 0 and args.fail_fast:
