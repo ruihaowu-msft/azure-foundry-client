@@ -7,6 +7,7 @@ This repository supports a report-only reviewer flow backed by an Azure AI Found
 - runs on pull requests
 - sends the PR diff and review instructions to a Foundry reviewer model
 - posts or updates one PR comment with the review result
+- posts or updates one PR comment when the reviewer workflow fails
 - does not change code automatically
 
 ## Repository configuration
