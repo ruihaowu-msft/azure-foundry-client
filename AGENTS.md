@@ -4,8 +4,8 @@ This project uses a report-first review workflow.
 
 ## Roles
 
-- Reviewer A is a model deployed in Azure AI Foundry.
-- Reviewer B is a second model deployed in Azure AI Foundry.
+- The execution model is configured outside this repository in the user's Codex setup.
+- The reviewer model is a separate model deployed in Azure AI Foundry.
 - Automated checks only report findings.
 - The human owner decides whether any code should be changed after the report.
 
@@ -14,7 +14,7 @@ This project uses a report-first review workflow.
 - Automated review must not change repository files or push fixes.
 - Prefer narrow, reviewable patches over broad refactors.
 - Preserve the current prototype structure unless a change is required for the task.
-- Keep auth assumptions explicit. This project may use Azure OpenAI API keys or Entra / bearer-token style flows depending on deployment constraints.
+- Keep auth assumptions explicit. Reviewer auth may use Azure OpenAI API keys or Entra / bearer-token flows depending on deployment constraints.
 - Treat network-dependent Azure validation as environment-specific. Keep local mock paths working even when Azure access is unavailable.
 
 ## Review standard

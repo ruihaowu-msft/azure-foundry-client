@@ -11,27 +11,22 @@ ROOT = Path(__file__).resolve().parents[1]
 REVIEW_SCRIPT = ROOT / "scripts" / "foundry_review.py"
 DEFAULT_PROMPT = ROOT / "samples" / "reviewer-smoke.md"
 DEFAULT_OUTPUT_DIR = ROOT / "output" / "local-review"
-DEFAULT_ENV_FILE = ROOT / ".env.reviewers"
+DEFAULT_ENV_FILE = ROOT / ".env.reviewer"
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run both local Foundry reviewers against the same prompt"
+        description="Run the local Foundry reviewer against a prompt"
     )
     parser.add_argument(
         "--prompt-file",
         default=str(DEFAULT_PROMPT),
-        help="Prompt file to send to both reviewers",
+        help="Prompt file to send to the reviewer",
     )
     parser.add_argument(
         "--output-dir",
         default=str(DEFAULT_OUTPUT_DIR),
         help="Directory where outputs are written",
-    )
-    parser.add_argument(
-        "--fail-fast",
-        action="store_true",
-        help="Stop immediately if reviewer A fails",
     )
     parser.add_argument(
         "--env-file",
@@ -67,19 +62,19 @@ def load_env_file(path: Path) -> None:
             os.environ[key] = value
 
 
-def build_reviewer_command(prefix: str, prompt_file: Path, output_dir: Path) -> list[str]:
-    endpoint = required_env(f"{prefix}_ENDPOINT")
-    model = required_env(f"{prefix}_MODEL")
-    api_key = optional_env(f"{prefix}_API_KEY")
-    bearer_token = optional_env(f"{prefix}_BEARER_TOKEN")
+def build_command(prompt_file: Path, output_dir: Path) -> list[str]:
+    endpoint = required_env("FOUNDRY_REVIEWER_ENDPOINT")
+    model = required_env("FOUNDRY_REVIEWER_MODEL")
+    api_key = optional_env("FOUNDRY_REVIEWER_API_KEY")
+    bearer_token = optional_env("FOUNDRY_REVIEWER_BEARER_TOKEN")
 
     if not api_key and not bearer_token:
         raise ValueError(
-            f"{prefix} requires either {prefix}_API_KEY or {prefix}_BEARER_TOKEN"
+            "Reviewer requires either FOUNDRY_REVIEWER_API_KEY or FOUNDRY_REVIEWER_BEARER_TOKEN"
         )
 
-    text_file = output_dir / f"{prefix.lower()}-output.md"
-    json_file = output_dir / f"{prefix.lower()}-raw.json"
+    text_file = output_dir / "reviewer-output.md"
+    json_file = output_dir / "reviewer-raw.json"
 
     command = [
         sys.executable,
@@ -102,13 +97,6 @@ def build_reviewer_command(prefix: str, prompt_file: Path, output_dir: Path) -> 
     return command
 
 
-def run_one(prefix: str, prompt_file: Path, output_dir: Path) -> int:
-    print(f"[run] {prefix}")
-    command = build_reviewer_command(prefix, prompt_file, output_dir)
-    completed = subprocess.run(command, check=False)
-    return completed.returncode
-
-
 def main() -> int:
     args = parse_args()
     prompt_file = Path(args.prompt_file).resolve()
@@ -117,17 +105,11 @@ def main() -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
     load_env_file(env_file)
 
-    result_a = run_one("FOUNDRY_REVIEWER_A", prompt_file, output_dir)
-    if result_a != 0 and args.fail_fast:
-        return result_a
-
-    result_b = run_one("FOUNDRY_REVIEWER_B", prompt_file, output_dir)
-
-    if result_a == 0 and result_b == 0:
+    print("[run] reviewer")
+    completed = subprocess.run(build_command(prompt_file, output_dir), check=False)
+    if completed.returncode == 0:
         print(f"[ok] outputs written to {output_dir}")
-        return 0
-
-    return result_a or result_b
+    return completed.returncode
 
 
 if __name__ == "__main__":

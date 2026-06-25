@@ -105,55 +105,49 @@ export AZURE_AI_TOKEN="<bearer-token>"
 
 ## AI 协作自动化
 
-这个项目现在带的是一套 **双 Foundry 模型、只上报不自动改代码** 的 PR 自动化骨架：
+这个项目现在带的是一套 **单 Foundry reviewer、只上报不自动改代码** 的 PR 自动化骨架。执行 model 不在这个仓库里配置，而是继续走你本机 `~/.codex/config.toml` 那套。
 
 - [`AGENTS.md`](/Users/williamwu/scratch/foundry-media-pipeline-prototype/AGENTS.md:1)：项目 review 规则
 - [`.github/prompts/foundry-review.md`](/Users/williamwu/scratch/foundry-media-pipeline-prototype/.github/prompts/foundry-review.md:1)：通用 reviewer 提示词
 - [`scripts/foundry_review.py`](/Users/williamwu/scratch/foundry-media-pipeline-prototype/scripts/foundry_review.py:1)：调用 Azure Foundry reviewer 模型的脚本
-- [`.github/workflows/foundry-dual-review.yml`](/Users/williamwu/scratch/foundry-media-pipeline-prototype/.github/workflows/foundry-dual-review.yml:1)：双 reviewer PR workflow
+- [`scripts/run_reviewer_local.py`](/Users/williamwu/scratch/foundry-media-pipeline-prototype/scripts/run_reviewer_local.py:1)：本地一键跑 reviewer
+- [`.github/workflows/foundry-review.yml`](/Users/williamwu/scratch/foundry-media-pipeline-prototype/.github/workflows/foundry-review.yml:1)：单 reviewer PR workflow
 
 ### 运行方式
 
 当 PR 被打开、更新、重新打开或标记为 ready for review 时：
 
-1. Foundry reviewer A 自动跑 review
-2. Foundry reviewer B 自动跑 review
-3. 两边都会把结果回写到同一个 PR 里，并且会更新已有 bot comment，而不是不停堆新评论
-4. workflow **不会自动改代码**
+1. Foundry reviewer 自动跑 review
+2. 结果会回写到 PR comment，并且会更新已有 bot comment，而不是不停堆新评论
+3. workflow **不会自动改代码**
 
 ### 需要配置的 GitHub variables / secrets
 
 Repository variables:
 
-- `FOUNDRY_REVIEWER_A_ENDPOINT`
-- `FOUNDRY_REVIEWER_A_MODEL`
-- `FOUNDRY_REVIEWER_B_ENDPOINT`
-- `FOUNDRY_REVIEWER_B_MODEL`
+- `FOUNDRY_REVIEWER_ENDPOINT`
+- `FOUNDRY_REVIEWER_MODEL`
 
 Repository secrets:
 
-- `FOUNDRY_REVIEWER_A_API_KEY` 或 `FOUNDRY_REVIEWER_A_BEARER_TOKEN`
-- `FOUNDRY_REVIEWER_B_API_KEY` 或 `FOUNDRY_REVIEWER_B_BEARER_TOKEN`
+- `FOUNDRY_REVIEWER_API_KEY` 或 `FOUNDRY_REVIEWER_BEARER_TOKEN`
 
 ### 公司环境下的本地 smoke test
 
 本地 reviewer key 和 endpoint 现在默认放在这个文件里：
 
-- [`.env.reviewers`](/Users/williamwu/scratch/foundry-media-pipeline-prototype/.env.reviewers:1)
+- [`.env.reviewer`](/Users/williamwu/scratch/foundry-media-pipeline-prototype/.env.reviewer:1)
 
 模板保留在这里：
 
-- [`.env.reviewers.example`](/Users/williamwu/scratch/foundry-media-pipeline-prototype/.env.reviewers.example:1)
+- [`.env.reviewer.example`](/Users/williamwu/scratch/foundry-media-pipeline-prototype/.env.reviewer.example:1)
 - [`config/reviewer-models.template.toml`](/Users/williamwu/scratch/foundry-media-pipeline-prototype/config/reviewer-models.template.toml:1)
 
-你现在直接编辑 `.env.reviewers` 就行，把下面 8 个值填掉：
+你现在直接编辑 `.env.reviewer` 就行，把下面 4 个值填掉：
 
-- `FOUNDRY_REVIEWER_A_ENDPOINT`
-- `FOUNDRY_REVIEWER_A_MODEL`
-- `FOUNDRY_REVIEWER_A_API_KEY` 或 `FOUNDRY_REVIEWER_A_BEARER_TOKEN`
-- `FOUNDRY_REVIEWER_B_ENDPOINT`
-- `FOUNDRY_REVIEWER_B_MODEL`
-- `FOUNDRY_REVIEWER_B_API_KEY` 或 `FOUNDRY_REVIEWER_B_BEARER_TOKEN`
+- `FOUNDRY_REVIEWER_ENDPOINT`
+- `FOUNDRY_REVIEWER_MODEL`
+- `FOUNDRY_REVIEWER_API_KEY` 或 `FOUNDRY_REVIEWER_BEARER_TOKEN`
 
 如果你走 bearer token，本地先登录 Azure，再拿 token：
 
@@ -162,19 +156,18 @@ az login
 TOKEN=$(az account get-access-token --resource https://cognitiveservices.azure.com --query accessToken -o tsv)
 ```
 
-然后把 `TOKEN` 填进 `.env.reviewers` 对应的 `*_BEARER_TOKEN`。
+然后把 `TOKEN` 填进 `.env.reviewer` 里的 `FOUNDRY_REVIEWER_BEARER_TOKEN`。
 
-#### 方式 A：一键跑两个 reviewer
+#### 方式 A：一键跑 reviewer
 
 ```bash
 cd /Users/williamwu/scratch/foundry-media-pipeline-prototype
-python3 scripts/run_dual_review_local.py
+python3 scripts/run_reviewer_local.py
 ```
 
 输出会写到：
 
-- `output/local-review/foundry_reviewer_a-output.md`
-- `output/local-review/foundry_reviewer_b-output.md`
+- `output/local-review/reviewer-output.md`
 
 #### 方式 B：单独测一个 reviewer
 

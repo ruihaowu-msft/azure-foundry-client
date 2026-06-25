@@ -7,6 +7,7 @@ Important constraints:
 - Do not propose automatic code changes in this run.
 - This run is report-only.
 - Prioritize material risks over stylistic feedback.
+- Do not review or reconfigure the user's execution model setup in `~/.codex`; this run only reviews the repository changes.
 
 Focus on:
 

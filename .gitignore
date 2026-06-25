@@ -2,6 +2,7 @@
 .pytest_cache/
 output/
 .env.reviewers
+.env.reviewer
 __pycache__/
 *.pyc
 *.pyo
