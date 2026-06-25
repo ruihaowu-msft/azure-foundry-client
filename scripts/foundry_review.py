@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import socket
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -28,6 +30,24 @@ def parse_args() -> argparse.Namespace:
         "--response-json-file",
         default="",
         help="Optional path to save the raw JSON response for debugging",
+    )
+    parser.add_argument(
+        "--timeout-seconds",
+        type=int,
+        default=300,
+        help="HTTP timeout for each reviewer request attempt",
+    )
+    parser.add_argument(
+        "--max-retries",
+        type=int,
+        default=1,
+        help="How many times to retry transient network failures after the first attempt",
+    )
+    parser.add_argument(
+        "--retry-delay-seconds",
+        type=int,
+        default=5,
+        help="Delay between retry attempts for transient network failures",
     )
     return parser.parse_args()
 
@@ -63,6 +83,40 @@ def extract_output_text(payload: dict) -> str:
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
+def read_response(
+    request: urllib.request.Request,
+    *,
+    timeout_seconds: int,
+    max_retries: int,
+    retry_delay_seconds: int,
+) -> str:
+    attempts = max_retries + 1
+    last_error: Exception | None = None
+
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+                return response.read().decode("utf-8")
+        except urllib.error.HTTPError as error:
+            detail = error.read().decode("utf-8", errors="replace")
+            raise RuntimeError(
+                f"Foundry request failed with HTTP {error.code}: {detail}"
+            ) from error
+        except (TimeoutError, socket.timeout, urllib.error.URLError) as error:
+            last_error = error
+            if attempt >= attempts:
+                break
+            sys.stderr.write(
+                f"[warn] Foundry request attempt {attempt}/{attempts} failed: {error}. "
+                f"Retrying in {retry_delay_seconds}s.\n"
+            )
+            time.sleep(retry_delay_seconds)
+
+    raise RuntimeError(
+        f"Foundry request failed after {attempts} attempt(s): {last_error}"
+    ) from last_error
+
+
 def main() -> int:
     args = parse_args()
     if not args.api_key and not args.bearer_token:
@@ -87,13 +141,12 @@ def main() -> int:
         headers["Authorization"] = f"Bearer {args.bearer_token}"
 
     request = urllib.request.Request(url, data=body, headers=headers, method="POST")
-
-    try:
-        with urllib.request.urlopen(request, timeout=120) as response:
-            raw = response.read().decode("utf-8")
-    except urllib.error.HTTPError as error:
-        detail = error.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"Foundry request failed with HTTP {error.code}: {detail}") from error
+    raw = read_response(
+        request,
+        timeout_seconds=args.timeout_seconds,
+        max_retries=args.max_retries,
+        retry_delay_seconds=args.retry_delay_seconds,
+    )
 
     data = json.loads(raw)
     if args.response_json_file:

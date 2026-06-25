@@ -102,6 +102,9 @@ jobs:
             --prompt-file .github/tmp/reviewer-input.md \
             --output-file .artifacts/reviewer.md \
             --response-json-file .artifacts/reviewer-response.json \
+            --timeout-seconds 300 \
+            --max-retries 1 \
+            --retry-delay-seconds 5 \
             --api-key "$REVIEW_API_KEY" \
             --bearer-token "$REVIEW_BEARER_TOKEN" \
             > .artifacts/reviewer.stdout \
